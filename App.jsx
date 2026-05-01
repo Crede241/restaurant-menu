@@ -59,6 +59,36 @@ function KitchenScreen() {
     await updateDoc(doc(db, "commandes", id), { status: "done" });
   };
 
+  const exportCSV = () => {
+    const rows = [["Date", "Heure", "Table", "Plat", "Quantité", "Prix unitaire", "Sous-total", "Total commande", "Statut"]];
+    orders.forEach(order => {
+      const date = order.createdAt?.toDate();
+      const dateStr = date ? date.toLocaleDateString("fr-FR") : "";
+      const timeStr = date ? date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "";
+      order.items?.forEach((item, i) => {
+        rows.push([
+          dateStr,
+          timeStr,
+          `Table ${order.table}`,
+          item.name,
+          item.qty,
+          item.price?.toFixed(2),
+          (item.price * item.qty).toFixed(2),
+          i === 0 ? order.total?.toFixed(2) : "",
+          order.status === "done" ? "Servie" : "En attente",
+        ]);
+      });
+    });
+    const csv = rows.map(r => r.map(c => `"${c}"`).join(";")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `commandes_${new Date().toLocaleDateString("fr-FR").replace(/\//g, "-")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const pending = orders.filter(o => o.status !== "done");
   const done = orders.filter(o => o.status === "done");
 
@@ -93,7 +123,12 @@ function KitchenScreen() {
     <div style={s.page}>
       <div style={s.header}>
         <h1 style={s.title}>🍳 Écran Cuisine</h1>
-        {pending.length > 0 && <span style={s.badge}>{pending.length} en attente</span>}
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          {pending.length > 0 && <span style={s.badge}>{pending.length} en attente</span>}
+          <button onClick={exportCSV} style={{ background: "#1D4A2A", color: "#5DCAA5", border: "1px solid #1D6B3A", borderRadius: "8px", padding: "6px 12px", fontSize: "12px", cursor: "pointer", fontFamily: "Georgia, serif" }}>
+            ⬇ Export CSV
+          </button>
+        </div>
       </div>
 
       {pending.length === 0 && (
